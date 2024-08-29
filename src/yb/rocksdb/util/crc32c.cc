@@ -25,12 +25,20 @@
 // four bytes at a time.
 
 #include "yb/rocksdb/util/crc32c.h"
+#include "yb/rocksdb/util/crc32c_arm64.h"
 
 #include <stdint.h>
 #ifdef __SSE4_2__
 #include <nmmintrin.h>
 #endif
 #include "yb/rocksdb/util/coding.h"
+
+#if defined(HAVE_ARM64_CRC)
+bool pmull_runtime_flag = false;
+uint32_t ExtendARMImpl(uint32_t crc, const char* buf, size_t size) {
+  return crc32c_arm64(crc, (const unsigned char*)buf, size);
+}
+#endif
 
 namespace rocksdb {
 namespace crc32c {
@@ -404,15 +412,44 @@ static bool isSSE42() {
 typedef uint32_t (*Function)(uint32_t, const char*, size_t);
 
 static inline Function Choose_Extend() {
+    #if defined(HAVE_ARM64_CRC)
+        if(crc32c_runtime_check()) {
+      pmull_runtime_flag = crc32c_pmull_runtime_check();
+      return ExtendARMImpl;
+    } 
+  #endif
+
   return isSSE42() ? ExtendImpl<Fast_CRC32> : ExtendImpl<Slow_CRC32>;
 }
 
 bool IsFastCrc32Supported() {
-#ifdef __SSE4_2__
-  return isSSE42();
+  bool has_fast_crc = false;
+  std::string fast_zero_msg;
+  std::string arch;
+
+#if defined(__aarch64__) || defined(__AARCH64__)
+  if (crc32c_runtime_check()) {
+    has_fast_crc = true;
+    arch = "Arm64";
+    pmull_runtime_flag = crc32c_pmull_runtime_check();
+  } else {
+    has_fast_crc = false;
+    arch = "Arm64";
+  }
 #else
-  return false;
+  #ifdef __SSE4_2__
+    has_fast_crc = true;
+  #endif  // __SSE4_2__
+  arch = "x86";
 #endif
+
+  if (has_fast_crc) {
+    fast_zero_msg.append("Supported on " + arch);
+  } else {
+    fast_zero_msg.append("Not supported on " + arch);
+
+  }
+  return has_fast_crc;
 }
 
 Function ChosenExtend = Choose_Extend();
