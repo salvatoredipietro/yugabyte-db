@@ -72,10 +72,21 @@ endif()
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
   # Optimize for Graviton on Linux/aarch64 (not mac/arm64)
-  ADD_CXX_FLAGS("-march=armv8.2-a+fp16+rcpc+dotprod+crypto")
+  ADD_CXX_FLAGS("-march=armv8.2-a+fp16+rcpc+dotprod+crypto+crc")
   ADD_CXX_FLAGS("-mtune=neoverse-n1")
   ADD_CXX_FLAGS("-mno-outline-atomics")
+  ADD_CXX_FLAGS("-Wno-unused-function")
 endif()
+
+#include(CheckCCompilerFlag)
+#if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64|AARCH64")
+#        CHECK_C_COMPILER_FLAG("-march=armv8-a+crc+crypto" HAS_ARMV8_CRC)
+#  if(HAS_ARMV8_CRC)
+#    message(STATUS " HAS_ARMV8_CRC yes")
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+crc+crypto -Wno-unused-function")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crc+crypto -Wno-unused-function")
+#  endif(HAS_ARMV8_CRC)
+#endif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64|AARCH64")
 
 if (NOT "$ENV{YB_TARGET_ARCH}" STREQUAL "" AND
     NOT "$ENV{YB_TARGET_ARCH}" STREQUAL "${CMAKE_SYSTEM_PROCESSOR}")

@@ -161,7 +161,7 @@ static inline void AsmVolatilePause() {
 #if defined(__i386__) || defined(__x86_64__)
   asm volatile("pause");
 #elif defined(__aarch64__)
-  asm volatile("wfe");
+  asm volatile("isb");
 #elif defined(__powerpc64__)
   asm volatile("or 27,27,27");
 #endif
@@ -177,7 +177,17 @@ extern void InitOnce(OnceType* once, void (*initializer)());
 
 #define CACHE_LINE_SIZE 64U
 
+#if defined(__aarch64__)
+//  __builtin_prefetch(..., 1) turns into a prefetch into prfm pldl3keep. On
+// arm64 we want this as close to the core as possible to turn it into a
+// L1 prefetech unless locality == 0 in which case it will be turned into a
+// non-temporal prefetch
+// ref: https://github.com/facebook/rocksdb/pull/10117/files
+#define PREFETCH(addr, rw, locality) \
+  __builtin_prefetch(addr, rw, locality >= 1 ? 3 : locality)
+#else
 #define PREFETCH(addr, rw, locality) __builtin_prefetch(addr, rw, locality)
+#endif
 
 extern void Crash(const std::string& srcfile, int srcline);
 

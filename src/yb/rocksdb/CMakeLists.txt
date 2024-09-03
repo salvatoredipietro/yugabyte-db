@@ -119,6 +119,7 @@ set(ROCKSDB_SRCS
     util/compaction_job_stats_impl.cc
     util/concurrent_arena.cc
     util/crc32c.cc
+    util/crc32c_arm64.cc
     util/delete_scheduler.cc
     util/dynamic_bloom.cc
     util/env.cc
